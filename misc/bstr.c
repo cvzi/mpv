@@ -22,10 +22,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "mpv_talloc.h"
+#include "../mpv_talloc.h"
 
-#include "common/common.h"
-#include "misc/ctype.h"
+#include "../common/common.h"
+#include "../misc/ctype.h"
 #include "bstr.h"
 
 int bstrcmp(struct bstr str1, struct bstr str2)

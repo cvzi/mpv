@@ -24,8 +24,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "osdep/compiler.h"
-#include "mpv_talloc.h"
+#include "../osdep/compiler.h"
+#include "../mpv_talloc.h"
 
 // double should be able to represent this exactly
 #define MP_NOPTS_VALUE (-0x1p+63)

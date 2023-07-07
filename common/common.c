@@ -19,17 +19,107 @@
 #include <math.h>
 #include <assert.h>
 
-#include <libavutil/common.h>
-#include <libavutil/error.h>
-
-#include "mpv_talloc.h"
-#include "misc/bstr.h"
-#include "misc/ctype.h"
-#include "common/common.h"
-#include "osdep/strnlen.h"
+#include "../mpv_talloc.h"
+#include "../misc/bstr.h"
+#include "../misc/ctype.h"
+#include "../common/common.h"
+#include "../osdep/strnlen.h"
 
 #define appendf(ptr, ...) \
     do {(*(ptr)) = talloc_asprintf_append_buffer(*(ptr), __VA_ARGS__);} while(0)
+
+
+
+
+
+const uint8_t ff_log2_tab[256];
+
+
+static inline const int ff_log2(unsigned int v)
+{
+    int n = 0;
+    if (v & 0xffff0000) {
+        v >>= 16;
+        n += 16;
+    }
+    if (v & 0xff00) {
+        v >>= 8;
+        n += 8;
+    }
+    n += ff_log2_tab[v];
+
+    return n;
+}
+
+
+
+static inline const int ff_log2_16bit(unsigned int v)
+{
+    int n = 0;
+    if (v & 0xff00) {
+        v >>= 8;
+        n += 8;
+    }
+    n += ff_log2_tab[v];
+
+    return n;
+}
+
+
+int av_log2(unsigned v)
+{
+    return ff_log2(v);
+}
+
+int av_log2_16bit(unsigned v)
+{
+    return ff_log2_16bit(v);
+}
+
+
+/**
+ * @def PUT_UTF8(val, tmp, PUT_BYTE)
+ * Convert a 32-bit Unicode character to its UTF-8 encoded form (up to 4 bytes long).
+ * @param val is an input-only argument and should be of type uint32_t. It holds
+ * a UCS-4 encoded Unicode character that is to be converted to UTF-8. If
+ * val is given as a function it is executed only once.
+ * @param tmp is a temporary variable and should be of type uint8_t. It
+ * represents an intermediate value during conversion that is to be
+ * output by PUT_BYTE.
+ * @param PUT_BYTE writes the converted UTF-8 bytes to any proper destination.
+ * It could be a function or a statement, and uses tmp as the input byte.
+ * For example, PUT_BYTE could be "*output++ = tmp;" PUT_BYTE will be
+ * executed up to 4 times for values in the valid UTF-8 range and up to
+ * 7 times in the general case, depending on the length of the converted
+ * Unicode character.
+ */
+#define PUT_UTF8(val, tmp, PUT_BYTE)\
+    {\
+        int bytes, shift;\
+        uint32_t in = val;\
+        if (in < 0x80) {\
+            tmp = in;\
+            PUT_BYTE\
+        } else {\
+            bytes = (av_log2(in) + 4) / 5;\
+            shift = (bytes - 1) * 6;\
+            tmp = (256 - (256 >> bytes)) | (in >> shift);\
+            PUT_BYTE\
+            while (shift >= 6) {\
+                shift -= 6;\
+                tmp = 0x80 | ((in >> shift) & 0x3f);\
+                PUT_BYTE\
+            }\
+        }\
+    }
+
+
+
+
+
+
+
+
 
 // Return a talloc'ed string formatted according to the format string in fmt.
 // On error, return NULL.
@@ -49,7 +139,7 @@ char *mp_format_time_fmt(const char *fmt, double time)
     time = time < 0 ? -time : time;
     long long int itime = time;
     long long int h, m, tm, s;
-    int ms = lrint((time - itime) * 1000);
+    int ms = (time - itime) * 1000;
     if (ms >= 1000) {
         ms -= 1000;
         itime += 1;
@@ -301,7 +391,6 @@ bool mp_append_escaped_string(void *talloc_ctx, bstr *dst, bstr *src)
 char *mp_strerror_buf(char *buf, size_t buf_size, int errnum)
 {
     // This handles the nasty details of calling the right function for us.
-    av_strerror(AVERROR(errnum), buf, buf_size);
     return buf;
 }
 
